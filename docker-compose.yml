@@ -1,0 +1,84 @@
+services:
+  # API service
+  api:
+    build:
+      context: ./
+      dockerfile: docker/php/Dockerfile
+    container_name: api
+    restart: unless-stopped
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www
+      - ./application:/var/www/application
+    depends_on:
+      - db
+      - redis
+    networks:
+      - backend
+
+  # NGINX service
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "${NGINX_PORT:-8000}:80"
+    volumes:
+      - ./:/var/www
+      - ./application:/var/www/application
+      - ./docker/nginx:/etc/nginx/conf.d
+    networks:
+      - backend
+
+  # Redis service
+  redis:
+    build:
+      context: ./
+      dockerfile: docker/redis/Dockerfile
+    container_name: redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis:/data
+    networks:
+      - backend
+
+  # PostgreSQL service
+  db:
+    build:
+      context: ./
+      dockerfile: docker/db/Dockerfile
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-prizly}
+      POSTGRES_USER: ${DB_USERNAME:-prizly}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-prizly}
+    ports:
+      - "${DB_PORT:-15432}:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    networks:
+      - backend
+
+  # Mailhog service
+  mailhog:
+    build:
+      context: ./
+      dockerfile: docker/mail/Dockerfile
+    container_name: mailhog
+    restart: unless-stopped
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_WEB_PORT:-8025}:8025"
+    networks:
+      - backend
+
+volumes:
+  redis:
+  db:
+
+networks:
+  backend:
+    driver: bridge
