@@ -64,6 +64,54 @@ Por último, no arquivo `application/config/app.php`, as configurações devem s
 'timezone' => env('APP_TIMEZONE', 'UTC'),
 ```
 
+# Habilitar rotas de API
+
+A partir da versão 11 do Laravel as rotas de API não são instaladas por padrão, portanto é necessário fazê-lo no início do projeto.
+
+Para isso, basta seguir os passos abaixo:
+
+1. Entrar no container da aplicação:
+
+```sh
+docker exec -it api /bin/bash
+```
+
+2. Entrar no diretório da aplicação (onde o artisan fica):
+
+```sh
+cd application
+```
+
+3. Executar o comando que habilita as rotas de API:
+
+```sh
+artisan install:api
+```
+
+4. Dentro do arquivo `application/.env`, garantir que a URL da aplicação esteja correta:
+
+```
+APP_URL=http://localhost:8000
+```
+
+# Configurar o Sanctum
+
+Depois de instalado, o Sanctum deve ser configurado para que funcione corretamente.
+
+Para isso, devem ser seguidos os passos abaixo:
+
+1. Configurar domínios `statefull` em `config/sanctum.php`:
+
+```php
+'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', 'localhost,127.0.0.1')),
+```
+
+2. Ajustar o conteúdo de `application/.env` para que a variável de ambiente tenha os domínios corretos. Ex.:
+
+```
+SANCTUM_STATEFUL_DOMAINS=localhost,localhost:3000,localhost:8000,127.0.0.1,127.0.0.1:8000,::1
+```
+
 # Referências
 
 https://github.com/wleandrooliveira/configuration-env-laravel-docker-postgresql-nginx-redis

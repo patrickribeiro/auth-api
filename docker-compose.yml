@@ -75,6 +75,20 @@ services:
     networks:
       - backend
 
+  # Scheduler service
+  scheduler:
+    build:
+      context: ./
+      dockerfile: docker/scheduler/Dockerfile
+    container_name: scheduler
+    restart: unless-stopped
+    depends_on:
+      - api
+    volumes:
+      - .:/var/www
+    networks:
+      - backend
+
 volumes:
   redis:
   db:
