@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\SocialAuthController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -33,6 +34,14 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/email/verification-notification', 'resendVerification')
         ->middleware('throttle:6,1')
         ->name('verification.send');
+});
+
+// social authentication routes
+Route::controller(SocialAuthController::class)->group(function () {
+    Route::get('auth/redirect/google', 'redirectToGoogle');
+    Route::get('auth/callback/google', 'handleGoogleCallback');
+    Route::get('auth/redirect/facebook', 'redirectToFacebook');
+    Route::get('auth/callback/facebook', 'handleFacebookCallback');
 });
 
 // get user route

@@ -48,6 +48,34 @@ class AuthTest extends TestCase
     }
 
     /**
+     * register missing fields test
+     */
+    public function test_register_fails_with_missing_fields()
+    {
+        $response = $this->postJson('/api/register', []);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['name', 'email', 'password']);
+    }
+
+    /**
+     * register email already in use test
+     */
+    public function test_register_fails_with_duplicate_email()
+    {
+        User::factory()->create(['email' => 'teste@exemplo.com']);
+
+        $response = $this->postJson('/api/register', [
+            'name' => 'Novo Usuário',
+            'email' => 'teste@exemplo.com',
+            'password' => 'secret123'
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['email']);
+    }
+
+    /**
      * login test
      */
     public function test_login_returns_token_on_success()
@@ -67,6 +95,20 @@ class AuthTest extends TestCase
     }
 
     /**
+     * login invalid credentials test
+     */
+    public function test_login_fails_with_invalid_credentials()
+    {
+        $response = $this->postJson('/api/login', [
+            'email' => 'naoexiste@exemplo.com',
+            'password' => 'senhaerrada'
+        ]);
+
+        $response->assertStatus(401);
+        $response->assertJsonFragment(['message' => 'Credenciais inválidas']);
+    }
+
+    /**
      * refresh token test
      */
     public function test_user_can_refresh_token()
@@ -79,6 +121,31 @@ class AuthTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonStructure(['access_token', 'refresh_token']);
+    }
+
+    /**
+     * refresh token unauthenticated user test
+     */
+    public function test_refresh_fails_without_authentication()
+    {
+        $response = $this->postJson('/api/refresh');
+
+        $response->assertStatus(401);
+    }
+
+    /**
+     * refresh token with a token without ability test
+     */
+    public function test_refresh_fails_without_refresh_ability()
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('token-sem-refresh', ['access-api'])->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/refresh');
+
+        $response->assertStatus(403);
+        $response->assertJsonFragment(['message' => 'Token não autorizado para refresh']);
     }
 
     /**
@@ -102,6 +169,20 @@ class AuthTest extends TestCase
             ->assertJson(['message' => 'Senha redefinida com sucesso.']);
 
         $this->assertTrue(Hash::check('novaSenha123!', $user->fresh()->password));
+    }
+
+    /**
+     * reset password with invalid token test
+     */
+    public function test_reset_password_fails_with_invalid_token()
+    {
+        $response = $this->postJson('/api/reset-password', [
+            'email' => 'user@teste.com',
+            'token' => 'invalido',
+            'password' => 'novaSenha123'
+        ]);
+
+        $response->assertStatus(422); // ou 400 dependendo da implementação
     }
 
     /**
@@ -152,6 +233,16 @@ class AuthTest extends TestCase
     }
 
     /**
+     * logout without authentication test
+     */
+    public function test_logout_fails_without_authentication()
+    {
+        $response = $this->postJson('/api/logout');
+
+        $response->assertStatus(401);
+    }
+
+    /**
      * logout all test
      */
     public function test_user_can_logout_from_all_devices()
@@ -167,6 +258,16 @@ class AuthTest extends TestCase
             ->assertJson(['message' => 'Logout realizado em todos os dispositivos.']);
 
         $this->assertCount(0, $user->tokens);
+    }
+
+    /**
+     * logout all devices without authentication test
+     */
+    public function test_logout_all_fails_without_authentication()
+    {
+        $response = $this->postJson('/api/logout-all');
+
+        $response->assertStatus(401);
     }
 
     /**
@@ -214,5 +315,41 @@ class AuthTest extends TestCase
         $this->actingAs($user)
             ->getJson('/api/user')
             ->assertStatus(403);
+    }
+
+    /**
+     * verification email with invalid parameters test
+     */
+    public function test_verify_email_fails_with_invalid_signature()
+    {
+        $user = User::factory()->create();
+
+        $url = "/api/email/verify/{$user->id}/hash-invalido";
+
+        $token = $user->createToken('verificador')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->getJson($url);
+
+        $response->assertStatus(403); // ou 401 dependendo da implementação
+    }
+
+    /**
+     * verification email requests limit exceeded test
+     */
+    public function test_verification_notification_throttling()
+    {
+        $user = User::factory()->create();
+
+        $token = $user->createToken('verificador')->plainTextToken;
+
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->withHeader('Authorization', "Bearer {$token}")
+                ->postJson('/api/email/verification-notification');
+
+            if ($i >= 6) {
+                $response->assertStatus(429);
+            }
+        }
     }
 }
